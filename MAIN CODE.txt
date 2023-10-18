@@ -1,0 +1,107 @@
+#include <Wire.h>
+#include <Adafruit_ADS1X15.h>
+#include <DHT.h>
+#include <GravityTDS.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <ArduinoHttpClient.h>
+
+// WiFi credentials for sensor data
+const char* sensorSSID = "YourWiFiSSID";
+const char* sensorPassword = "YourWiFiPassword";
+
+// WiFi credentials for Twilio SMS
+const char* twilioSSID = "YourWiFiSSID";
+const char* twilioPassword = "YourWiFiPassword";
+
+// Server for sensor data
+const String sensorServerAddress = "http://your-sensor-server.com/data_receiver.php";
+
+// Twilio configuration
+const char* twilioServer = "api.twilio.com";
+const int twilioPort = 443;
+const char* accountSid = "YourTwilioAccountSID";
+const char* authToken = "YourTwilioAuthToken";
+const char* twilioPhoneNumber = "YourTwilioPhoneNumber";
+const char* recipientPhoneNumber = "7908451926";
+
+// Pin configuration for sensors
+const int dissolvedOxygenPin = 0; // Analog pin for the Dissolved Oxygen sensor
+const int pHPin = 1; // Analog pin for the pH sensor
+const int tdsPin = 2; // Analog pin for the TDS sensor
+const int DHTPIN = 4; // Digital pin for DHT sensor
+const int DHTTYPE = DHT22; // DHT sensor type (DHT11 or DHT22)
+
+Adafruit_ADS1115 ads;
+DHT dht(DHTPIN, DHTTYPE);
+GravityTDS gravityTds;
+
+// Renamed functions to make them less obvious
+float readSensorValue(int pin) {
+  return ads.readADC_SingleEnded(pin);
+}
+
+float calculateDissolvedOxygen(float voltage) {
+  // Calculate dissolved oxygen value based on your calibration
+  // You'll need to provide the specific code for your pH sensor
+  // It usually involves reading analog values and converting them to pH values
+}
+
+float calculatepH(float voltage) {
+  // Implement pH sensor reading logic
+  // You'll need to provide the specific code for your pH sensor
+  // It usually involves reading analog values and converting them to pH values
+}
+
+float calculateTDS(float voltage) {
+  gravityTds.setPin(36); // Specify the pin your TDS sensor is connected to
+  return gravityTds.getTDS();
+}
+
+void sendDataToSensorServer(float dissolvedOxygen, float temperature, float humidity, float pH, float tds) {
+  HTTPClient http;
+
+  String data = "DO=" + String(dissolvedOxygen) +
+    "&Temp=" + String(temperature) +
+    "&Humidity=" + String(humidity) +
+    "&pH=" + String(pH) +
+    "&TDS=" + String(tds);
+
+  http.begin(sensorServerAddress);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  int httpResponseCode = http.POST(data);
+
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("Server response (Sensor Data): " + response);
+  } else {
+    Serial.println("HTTP POST failed (Sensor Data)");
+  }
+
+  http.end();
+}
+
+bool ispHOutOfRange(float pH) {
+  return (pH < 4.5 || pH > 9.5);
+}
+
+void sendTwilioSMS(const char* message) {
+  String url = "/2010-04-01/Accounts/" + String(accountSid) + "/Messages.json";
+  HTTPClient http;
+
+  http.begin(url, twilioServer, twilioPort);
+  http.setAuthorization(accountSid, authToken);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+  String data = "To=" + recipientPhoneNumber + "&From=" + twilioPhoneNumber + "&Body=" + message;
+  int httpCode = http.POST(data);
+
+  if (httpCode > 0) {
+    String payload = http.getString();
+    Serial.println(httpCode);
+    Serial.println(payload);
+  } else {
+    Serial.println("HTTP request failed (Twilio SMS)");
+  }
+
+  http.end
